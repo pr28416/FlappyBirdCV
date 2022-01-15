@@ -8,25 +8,26 @@ drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
 pygame.init()
 
 # Initialize required elements/environment
-window_size = (1280, 960) # width by height
+VID_CAP = cv.VideoCapture(2)
+window_size = (VID_CAP.get(cv.CAP_PROP_FRAME_WIDTH), VID_CAP.get(cv.CAP_PROP_FRAME_HEIGHT)) # width by height
 screen = pygame.display.set_mode(window_size)
 bird_img = pygame.image.load("bird_sprite.png")
 print(bird_img.get_height(), bird_img.get_width())
 bird_img = pygame.transform.scale(bird_img, (bird_img.get_width() / 6, bird_img.get_height() / 6))
 bird_frame = bird_img.get_rect()
 bird_frame.x, bird_frame.y = window_size[0] // 6, window_size[1] // 2
-VID_CAP = cv.VideoCapture(2)
 pipe_frames = deque()
 pipe_img = pygame.image.load("pipe_sprite_single.png")
 starting_pipe_rect = pipe_img.get_rect()
+space_between_pipes = 250
 # pipe_y_bounds = (120-1000, window_size[1]-120-350-1000)
 
 def addPipes():
     global pipe_frames, starting_pipe_rect
     top = starting_pipe_rect.copy()
-    top.x, top.y = window_size[0], random.randint(120-1000, window_size[1]-120-350-1000)
+    top.x, top.y = window_size[0], random.randint(120-1000, window_size[1]-120-space_between_pipes-1000)
     bottom = starting_pipe_rect.copy()
-    bottom.x, bottom.y = window_size[0], top.y+1000+350
+    bottom.x, bottom.y = window_size[0], top.y+1000+space_between_pipes
     pipe_frames.append([top, bottom])
 
 def addMeshToFace(frame, results):
