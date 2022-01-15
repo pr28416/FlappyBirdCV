@@ -1,4 +1,4 @@
-import sys, random, pygame
+import sys, time, random, pygame
 from collections import deque
 import cv2 as cv, mediapipe as mp
 mp_drawing = mp.solutions.drawing_utils
@@ -56,10 +56,14 @@ def addMeshToFace(frame, results):
 
 # Game loop
 prevChinY = None
-clock = 0
+gameClock = time.time()
+stage = 1
+pipeSpawnTimer = 0
 T = 50
 pipe_velocity = lambda: 700/T
 level = 0
+score = 0
+didUpdateScore = False
 game_is_running = True
 
 with mp_face_mesh.FaceMesh(
@@ -129,23 +133,29 @@ with mp_face_mesh.FaceMesh(
         # Update screen
         pygame.surfarray.blit_array(screen, frame)
         screen.blit(bird_img, bird_frame)
+        checker = True
         for pf in pipe_frames:
+            # Check if bird went through to update score
+            if pf[0].left <= bird_frame.x <= pf[0].right:
+                checker = False
+                if not didUpdateScore:
+                    score += 1
+                    didUpdateScore = True
+            # Update screen
             screen.blit(pipe_img, pf[1])
             # screen.blit(pipe_img, pf[1])
             screen.blit(pygame.transform.flip(pipe_img, 0, 1), pf[0])
+        if checker: didUpdateScore = False
 
-        # starting_pipe_rect.x, starting_pipe_rect.y = 0, pipe_bounds[0]
-        # screen.blit(pipe_img, starting_pipe_rect)
-        # e = starting_pipe_rect.copy()
-        # e.x, e.y = window_size[0] - starting_pipe_rect.width, pipe_bounds[1]
-        # screen.blit(pipe_img, e)
+        text = pygame.font.SysFont("Helvetica Neue", 32).render(f'Stage {stage}', True, (99, 245, 255))
+        tr = text.get_rect()
+        tr.center = (100, 50)
+        screen.blit(text, tr)
+        text = pygame.font.SysFont("Helvetica Neue", 32).render(f'Score: {score}', True, (99, 245, 255))
+        tr = text.get_rect()
+        tr.center = (100, 100)
+        screen.blit(text, tr)
 
-        # TESTING PIPES
-        # starting_pipe_rect.x, starting_pipe_rect.y = 0, -500
-        # screen.blit(pygame.transform.flip(pipe_img, 0, 1), starting_pipe_rect)
-        # e = starting_pipe_rect.copy()
-        # e.x, e.y = 500, -500
-        # screen.blit(pygame.transform.flip(pipe_img, 0, 1), e)
         pygame.display.flip()
 
         # Check if bird is touching a pipe
@@ -153,12 +163,12 @@ with mp_face_mesh.FaceMesh(
             game_is_running = False
 
         # Adjust clock
-        if clock == 0: addPipes()
-        clock += 1
-        if clock >= T: clock = 0
-        if clock == 0: level += 1
-        if level == 10:
+        if pipeSpawnTimer == 0: addPipes()
+        pipeSpawnTimer += 1
+        if pipeSpawnTimer >= T: pipeSpawnTimer = 0
+        if time.time() - gameClock >= 10:
             print(f"Changing time from t={T} to t={5/6*T}")
             T *= 5/6
-            level = 0
+            stage += 1
+            gameClock = time.time()
 
