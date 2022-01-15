@@ -20,7 +20,6 @@ pipe_frames = deque()
 pipe_img = pygame.image.load("pipe_sprite_single.png")
 starting_pipe_rect = pipe_img.get_rect()
 space_between_pipes = 250
-# pipe_y_bounds = (120-1000, window_size[1]-120-350-1000)
 
 def addPipes():
     global pipe_frames, starting_pipe_rect
@@ -144,7 +143,6 @@ with mp_face_mesh.FaceMesh(
                     didUpdateScore = True
             # Update screen
             screen.blit(pipe_img, pf[1])
-            # screen.blit(pipe_img, pf[1])
             screen.blit(pygame.transform.flip(pipe_img, 0, 1), pf[0])
         if checker: didUpdateScore = False
 
