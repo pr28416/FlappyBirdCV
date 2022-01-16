@@ -94,7 +94,7 @@ with mp_face_mesh.FaceMesh(
             pf[1].x -= pipe_velocity()
 
         if len(pipe_frames) > 0 and pipe_frames[0][0].right < 0:
-            del pipe_frames[0]
+            pipe_frames.popleft()
 
         # Update screen
         pygame.surfarray.blit_array(screen, frame)
@@ -146,4 +146,3 @@ with mp_face_mesh.FaceMesh(
             time_between_pipe_spawn *= 5 / 6
             stage += 1
             game_clock = time.time()
-
