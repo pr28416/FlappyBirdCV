@@ -8,59 +8,28 @@ drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
 pygame.init()
 
 # Initialize required elements/environment
-VID_CAP = cv.VideoCapture(2)
+VID_CAP = cv.VideoCapture(3)
 window_size = (VID_CAP.get(cv.CAP_PROP_FRAME_WIDTH), VID_CAP.get(cv.CAP_PROP_FRAME_HEIGHT)) # width by height
 screen = pygame.display.set_mode(window_size)
+
+# Bird and pipe init
 bird_img = pygame.image.load("bird_sprite.png")
-print(bird_img.get_height(), bird_img.get_width())
 bird_img = pygame.transform.scale(bird_img, (bird_img.get_width() / 6, bird_img.get_height() / 6))
 bird_frame = bird_img.get_rect()
-bird_frame.x, bird_frame.y = window_size[0] // 6, window_size[1] // 2
+bird_frame.center = (window_size[0] // 6, window_size[1] // 2)
 pipe_frames = deque()
 pipe_img = pygame.image.load("pipe_sprite_single.png")
-starting_pipe_rect = pipe_img.get_rect()
+
+pipe_starting_template = pipe_img.get_rect()
 space_between_pipes = 250
 
-def addPipes():
-    global pipe_frames, starting_pipe_rect
-    top = starting_pipe_rect.copy()
-    top.x, top.y = window_size[0], random.randint(120-1000, window_size[1]-120-space_between_pipes-1000)
-    bottom = starting_pipe_rect.copy()
-    bottom.x, bottom.y = window_size[0], top.y+1000+space_between_pipes
-    pipe_frames.append([top, bottom])
-
-def addMeshToFace(frame, results):
-    if results.multi_face_landmarks:
-        for face_landmarks in results.multi_face_landmarks:
-            mp_drawing.draw_landmarks(
-                image=frame,
-                landmark_list=face_landmarks,
-                connections=mp_face_mesh.FACEMESH_TESSELATION,
-                landmark_drawing_spec=None,
-                connection_drawing_spec=mp_drawing_styles
-                    .get_default_face_mesh_tesselation_style())
-            mp_drawing.draw_landmarks(
-                image=frame,
-                landmark_list=face_landmarks,
-                connections=mp_face_mesh.FACEMESH_CONTOURS,
-                landmark_drawing_spec=None,
-                connection_drawing_spec=mp_drawing_styles
-                    .get_default_face_mesh_contours_style())
-            mp_drawing.draw_landmarks(
-                image=frame,
-                landmark_list=face_landmarks,
-                connections=mp_face_mesh.FACEMESH_IRISES,
-                landmark_drawing_spec=None,
-                connection_drawing_spec=mp_drawing_styles
-                    .get_default_face_mesh_iris_connections_style())
-
 # Game loop
-prevChinY = None
-gameClock = time.time()
+game_clock = time.time()
 stage = 1
 pipeSpawnTimer = 0
-T = 50
-pipe_velocity = lambda: 700/T
+time_between_pipe_spawn = 40
+dist_between_pipes = 500
+pipe_velocity = lambda: dist_between_pipes / time_between_pipe_spawn
 level = 0
 score = 0
 didUpdateScore = False
@@ -72,8 +41,9 @@ with mp_face_mesh.FaceMesh(
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5) as face_mesh:
     while True:
+        # Check if game is running
         if not game_is_running:
-            text = pygame.font.SysFont("Helvetica Neue", 64).render('Game over!', True, (99, 245, 255))
+            text = pygame.font.SysFont("Helvetica Bold.ttf", 64).render('Game over!', True, (99, 245, 255))
             tr = text.get_rect()
             tr.center = (window_size[0]/2, window_size[1]/2)
             screen.blit(text, tr)
@@ -84,6 +54,7 @@ with mp_face_mesh.FaceMesh(
             pygame.quit()
             sys.exit()
 
+        # Check if user quit window
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 VID_CAP.release()
@@ -91,6 +62,7 @@ with mp_face_mesh.FaceMesh(
                 pygame.quit()
                 sys.exit()
 
+        # Get frame
         ret, frame = VID_CAP.read()
         if not ret:
             print("Empty frame, continuing...")
@@ -105,19 +77,40 @@ with mp_face_mesh.FaceMesh(
         results = face_mesh.process(frame)
         frame.flags.writeable = True
 
+
+        #
+        # if results.multi_face_landmarks:
+        #     for face_landmarks in results.multi_face_landmarks:
+        #         mp_drawing.draw_landmarks(
+        #             image=frame,
+        #             landmark_list=face_landmarks,
+        #             connections=mp_face_mesh.FACEMESH_TESSELATION,
+        #             landmark_drawing_spec=None,
+        #             connection_drawing_spec=mp_drawing_styles
+        #                 .get_default_face_mesh_tesselation_style())
+        #         mp_drawing.draw_landmarks(
+        #             image=frame,
+        #             landmark_list=face_landmarks,
+        #             connections=mp_face_mesh.FACEMESH_CONTOURS,
+        #             landmark_drawing_spec=None,
+        #             connection_drawing_spec=mp_drawing_styles
+        #                 .get_default_face_mesh_contours_style())
+        #         mp_drawing.draw_landmarks(
+        #             image=frame,
+        #             landmark_list=face_landmarks,
+        #             connections=mp_face_mesh.FACEMESH_IRISES,
+        #             landmark_drawing_spec=None,
+        #             connection_drawing_spec=mp_drawing_styles
+        #                 .get_default_face_mesh_iris_connections_style())
+
+
         # Draw mesh
-        # addMeshToFace(frame, results)
         if results.multi_face_landmarks and len(results.multi_face_landmarks) > 0:
             # 94 = Tip of nose
-            # 152 = Lowest point on chin,
-            chinY = results.multi_face_landmarks[0].landmark[94].y
-            if prevChinY is None: prevChinY = chinY
-            delta = (chinY - prevChinY) * 2500
-            if abs(delta) < 5: delta = 0
-            bird_frame.y += delta
+            marker = results.multi_face_landmarks[0].landmark[94].y
+            bird_frame.centery = (marker - 0.5) * 1.5 * window_size[1] + window_size[1]/2
             if bird_frame.top < 0: bird_frame.y = 0
             if bird_frame.bottom > window_size[1]: bird_frame.y = window_size[1] - bird_frame.height
-            prevChinY = chinY
 
         # Mirror frame, swap axes because opencv != pygame
         frame = cv.flip(frame, 1).swapaxes(0, 1)
@@ -146,28 +139,38 @@ with mp_face_mesh.FaceMesh(
             screen.blit(pygame.transform.flip(pipe_img, 0, 1), pf[0])
         if checker: didUpdateScore = False
 
-        text = pygame.font.SysFont("Helvetica Neue", 32).render(f'Stage {stage}', True, (99, 245, 255))
+        # Stage, score text
+        text = pygame.font.SysFont("Helvetica Bold.ttf", 50).render(f'Stage {stage}', True, (99, 245, 255))
         tr = text.get_rect()
         tr.center = (100, 50)
         screen.blit(text, tr)
-        text = pygame.font.SysFont("Helvetica Neue", 32).render(f'Score: {score}', True, (99, 245, 255))
+        text = pygame.font.SysFont("Helvetica Bold.ttf", 50).render(f'Score: {score}', True, (99, 245, 255))
         tr = text.get_rect()
         tr.center = (100, 100)
         screen.blit(text, tr)
 
+        # Update screen
         pygame.display.flip()
 
         # Check if bird is touching a pipe
         if any([bird_frame.colliderect(pf[0]) or bird_frame.colliderect(pf[1]) for pf in pipe_frames]):
             game_is_running = False
 
-        # Adjust clock
-        if pipeSpawnTimer == 0: addPipes()
+        # Time to add new pipes
+        if pipeSpawnTimer == 0:
+            top = pipe_starting_template.copy()
+            top.x, top.y = window_size[0], random.randint(120 - 1000, window_size[1] - 120 - space_between_pipes - 1000)
+            bottom = pipe_starting_template.copy()
+            bottom.x, bottom.y = window_size[0], top.y + 1000 + space_between_pipes
+            pipe_frames.append([top, bottom])
+
+        # Update pipe spawn timer - make it cyclical
         pipeSpawnTimer += 1
-        if pipeSpawnTimer >= T: pipeSpawnTimer = 0
-        if time.time() - gameClock >= 10:
-            print(f"Changing time from t={T} to t={5/6*T}")
-            T *= 5/6
+        if pipeSpawnTimer >= time_between_pipe_spawn: pipeSpawnTimer = 0
+
+        # Update stage
+        if time.time() - game_clock >= 10:
+            time_between_pipe_spawn *= 5 / 6
             stage += 1
-            gameClock = time.time()
+            game_clock = time.time()
 
